@@ -20,7 +20,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 endpoint = "http://localhost:8501/v1/models/potatoes_model:predict"
 
 CLASS_NAMES = ["Early Blight", "Late Blight", "Healthy"]

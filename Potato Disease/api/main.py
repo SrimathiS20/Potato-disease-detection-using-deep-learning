@@ -5,6 +5,7 @@ import numpy as np
 from io import BytesIO
 from PIL import Image
 import tensorflow as tf
+import requests
 
 app = FastAPI()
 
@@ -20,7 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-MODEL = tf.keras.models.load_model("../saved_models/1.keras")
+endpoint = "http://localhost:8501/v1/models/potatoes_model:predict"
 
 CLASS_NAMES = ["Early Blight", "Late Blight", "Healthy"]
 
@@ -29,26 +30,47 @@ async def ping():
     return "Hello, I am alive"
 
 def read_file_as_image(data) -> np.ndarray:
-    image = np.array(Image.open(BytesIO(data)))
-    return image
+    try:
+        image = np.array(Image.open(BytesIO(data)))
+        return image
+    except Exception as e:
+        # Handle invalid image files
+        return {"error": str(e)}
 
 @app.post("/predict")
 async def predict(
     file: UploadFile = File(...)
 ):
-    image = read_file_as_image(await file.read())
-    img_batch = np.expand_dims(image, 0)
-    
-    predictions = MODEL.predict(img_batch)
+    try:
+        image = read_file_as_image(await file.read())
+        if isinstance(image, dict) and "error" in image:
+            return image  # Return error message
 
-    predicted_class = CLASS_NAMES[np.argmax(predictions[0])]
-    confidence = np.max(predictions[0])
-    return {
-        'class': predicted_class,
-        'confidence': float(confidence)
-    }
+        img_batch = np.expand_dims(image, 0)
 
-    
+        json_data = {
+            "instances": img_batch.tolist()
+        }
+
+        headers = {"Content-Type": "application/json"}
+        response = requests.post(endpoint, json=json_data, headers=headers)
+        response.raise_for_status()  # Raise an exception for 4xx or 5xx status codes
+
+        prediction = np.array(response.json()["predictions"][0])
+
+        predicted_class = CLASS_NAMES[np.argmax(prediction)]
+        confidence = np.max(prediction)
+
+        return {
+            "class": predicted_class,
+            "confidence": float(confidence)
+        }
+    except requests.RequestException as e:
+        # Handle request-related errors
+        return {"error": str(e)}
+    except Exception as e:
+        # Handle other exceptions
+        return {"error": str(e)}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host='localhost', port=8000)
+    uvicorn.run(app, host='localhost', port=8000, workers=4)  # Specify the number of workers

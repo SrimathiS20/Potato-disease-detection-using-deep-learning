@@ -13,6 +13,7 @@ origins = [
     "http://localhost",
     "http://localhost:3000",
 ]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -37,13 +38,11 @@ def read_file_as_image(data) -> np.ndarray:
         return {"error": str(e)}
 
 @app.post("/predict")
-async def predict(
-    file: UploadFile = File(...)
-):
+async def predict(file: UploadFile = File(...)):
     try:
         image = read_file_as_image(await file.read())
         if isinstance(image, dict) and "error" in image:
-            return image  
+            return image
 
         img_batch = np.expand_dims(image, 0)
 
@@ -53,10 +52,9 @@ async def predict(
 
         headers = {"Content-Type": "application/json"}
         response = requests.post(endpoint, json=json_data, headers=headers)
-        response.raise_for_status()  
+        response.raise_for_status()
 
         prediction = np.array(response.json()["predictions"][0])
-
         predicted_class = CLASS_NAMES[np.argmax(prediction)]
         confidence = np.max(prediction)
 
@@ -65,11 +63,9 @@ async def predict(
             "confidence": float(confidence)
         }
     except requests.RequestException as e:
-        
         return {"error": str(e)}
     except Exception as e:
-        
         return {"error": str(e)}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host='localhost', port=8000, workers=4)  
+    uvicorn.run("main:app", host="localhost", port=8000, reload=True, workers=4)

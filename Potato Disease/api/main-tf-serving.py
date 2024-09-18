@@ -33,7 +33,6 @@ def read_file_as_image(data) -> np.ndarray:
         image = np.array(Image.open(BytesIO(data)))
         return image
     except Exception as e:
-        # Handle invalid image files
         return {"error": str(e)}
 
 @app.post("/predict")
@@ -43,7 +42,6 @@ async def predict(
     try:
         image = read_file_as_image(await file.read())
         if isinstance(image, dict) and "error" in image:
-            # Return error if image is invalid
             return image
 
         img_batch = np.expand_dims(image, 0)
@@ -54,8 +52,7 @@ async def predict(
 
         headers = {"Content-Type": "application/json"}
         response = requests.post(endpoint, json=json_data, headers=headers)
-        response.raise_for_status()  # Raise an exception for 4xx or 5xx status codes
-
+        response.raise_for_status()  
         prediction = np.array(response.json()["predictions"][0])
 
         predicted_class = CLASS_NAMES[np.argmax(prediction)]
@@ -66,11 +63,9 @@ async def predict(
             "confidence": float(confidence)
         }
     except requests.RequestException as e:
-        # Handle request-related errors
         return {"error": str(e)}
     except Exception as e:
-        # Handle other exceptions
         return {"error": str(e)}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host='localhost', port=8000, workers=4)  # Specify the number of workers
+    uvicorn.run(app, host='localhost', port=8000, workers=4) 

@@ -1,32 +1,15 @@
-import os
 from fastapi import FastAPI, File, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import numpy as np
 from io import BytesIO
 from PIL import Image
-import requests
 import tensorflow as tf
-
-# Disable oneDNN optimizations
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+import requests
 
 app = FastAPI()
 
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 endpoint = "http://localhost:8501/v1/models/potatoes_model:predict"
+
 
 CLASS_NAMES = ["Early Blight", "Late Blight", "Healthy"]
 
@@ -35,41 +18,31 @@ async def ping():
     return "Hello, I am alive"
 
 def read_file_as_image(data) -> np.ndarray:
-    try:
-        image = np.array(Image.open(BytesIO(data)))
-        return image
-    except Exception as e:
-        return {"error": str(e)}
+    image = np.array(Image.open(BytesIO(data)))
+    return image
 
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)):
-    try:
-        image = read_file_as_image(await file.read())
-        if isinstance(image, dict) and "error" in image:
-            return image
+async def predict(
+    file: UploadFile = File(...)
+):
+    image = read_file_as_image(await file.read())
+    img_batch = np.expand_dims(image, 0)
 
-        img_batch = np.expand_dims(image, 0)
+    json_data = {
+        "instances": img_batch.tolist()
+    }
 
-        json_data = {
-            "instances": img_batch.tolist()
-        }
+    response = requests.post(endpoint, json=json_data)
+    prediction = np.array(response.json()["predictions"][0])
 
-        headers = {"Content-Type": "application/json"}
-        response = requests.post(endpoint, json=json_data, headers=headers)
-        response.raise_for_status()
+    predicted_class = CLASS_NAMES[np.argmax(prediction)]
+    confidence = np.max(prediction)
 
-        prediction = np.array(response.json()["predictions"][0])
-        predicted_class = CLASS_NAMES[np.argmax(prediction)]
-        confidence = np.max(prediction)
-
-        return {
-            "class": predicted_class,
-            "confidence": float(confidence)
-        }
-    except requests.RequestException as e:
-        return {"error": str(e)}
-    except Exception as e:
-        return {"error": str(e)}
+    return {
+        "class": predicted_class,
+        "confidence": float(confidence)
+    }
+   
 
 if __name__ == "__main__":
-    uvicorn.run("main.tf.serving:app", host="localhost", port=8000, reload=True, workers=4)
+    uvicorn.run(app, host='localhost', port=8000)

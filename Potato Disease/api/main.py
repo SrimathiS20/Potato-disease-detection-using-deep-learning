@@ -4,10 +4,12 @@ import numpy as np
 from io import BytesIO
 from PIL import Image
 import tensorflow as tf
+from keras.layers import TFSMLayer
 
 app = FastAPI()
 
-MODEL = tf.keras.models.load_model(r"C:\Users\shailaja\Music\Potato Disease Project\Potato-disease-detection-using-deep-learning\Potato Disease\saved_models\1.keras")
+MODEL = TFSMLayer(r"C:\Users\shailaja\Music\Potato Disease Project\Potato-disease-detection-using-deep-learning\Potato Disease\saved_models\potatoes_model_tf\1", 
+                  call_endpoint='serving_default')
 
 
 CLASS_NAMES = ["Early Blight", "Late Blight", "Healthy"]

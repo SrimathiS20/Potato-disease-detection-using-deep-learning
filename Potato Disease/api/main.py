@@ -1,18 +1,17 @@
 from fastapi import FastAPI, File, UploadFile
-import uvicorn
 import numpy as np
 from io import BytesIO
 from PIL import Image
 import tensorflow as tf
-from keras.layers import TFSMLayer
+import uvicorn
 
-app = FastAPI()
-
-MODEL = TFSMLayer(r"C:\Users\shailaja\Music\Potato Disease Project\Potato-disease-detection-using-deep-learning\Potato Disease\saved_models\potatoes_model_tf\1", 
-                  call_endpoint='serving_default')
-
+# Load the model using TFSMLayer
+MODEL_PATH = r"C:\Users\shailaja\Music\Potato Disease Project\Potato-disease-detection-using-deep-learning\Potato Disease\saved_models\potatoes_model_tf\1"
+model_layer = tf.keras.layers.TFSMLayer(MODEL_PATH, call_endpoint='serving_default')
 
 CLASS_NAMES = ["Early Blight", "Late Blight", "Healthy"]
+
+app = FastAPI()
 
 @app.get("/ping")
 async def ping():
@@ -23,12 +22,16 @@ def read_file_as_image(data) -> np.ndarray:
     return image
 
 @app.post("/predict")
-async def predict(
-    file: UploadFile = File(...)
-):
+async def predict(file: UploadFile = File(...)):
     image = read_file_as_image(await file.read())
-    img_batch = np.expand_dims(image, 0)
-    predictions = MODEL.predict(img_batch)
+    img_batch = np.expand_dims(image, axis=0)
+
+    # Get predictions from the model
+    predictions = model_layer(img_batch)
+    
+    # Log the raw predictions
+    print(f"Raw predictions: {predictions}")
+
     predicted_class = CLASS_NAMES[np.argmax(predictions[0])]
     confidence = np.max(predictions[0])
 

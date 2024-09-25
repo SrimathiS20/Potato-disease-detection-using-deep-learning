@@ -20,7 +20,7 @@ def read_file_as_image(data) -> np.ndarray:
         image = np.array(Image.open(BytesIO(data)))
         return image
     except Exception as e:
-        print(f"Error loading image: {e}")
+        print(f"Error reading image: {e}")
         raise e
 
 @app.post("/predict")
@@ -30,6 +30,9 @@ async def predict(file: UploadFile = File(...)):
         image = read_file_as_image(await file.read())
         img_batch = np.expand_dims(image, axis=0)
 
+        # Log the image shape for debugging
+        print(f"Image shape: {img_batch.shape}")
+
         # Prepare the data for TensorFlow Serving
         json_data = {
             "instances": img_batch.tolist()
@@ -38,14 +41,17 @@ async def predict(file: UploadFile = File(...)):
         # Send request to TensorFlow Serving
         response = requests.post(endpoint, json=json_data)
         
+        # Log the response status and content for debugging
+        print(f"Response status: {response.status_code}")
+        print(f"Response content: {response.content}")
+
         if response.status_code != 200:
-            print(f"Error from TensorFlow Serving: {response.content}")
-            return {"error": "Failed to get prediction from model"}
+            return {"error": f"Error from TensorFlow Serving: {response.content}"}
 
         predictions = np.array(response.json()["predictions"][0])
 
         # Log the raw predictions
-        print(f"Raw predictions: {predictions}")
+        print(f"Predictions: {predictions}")
 
         predicted_class = CLASS_NAMES[np.argmax(predictions)]
         confidence = np.max(predictions)

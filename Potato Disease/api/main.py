@@ -5,7 +5,7 @@ from PIL import Image
 import tensorflow as tf
 import uvicorn
 
-# Load the model using TFSMLayer
+
 MODEL_PATH = r"C:\Users\shailaja\Music\Potato Disease Project\Potato-disease-detection-using-deep-learning\Potato Disease\saved_models\potatoes_model_tf\1"
 model_layer = tf.keras.layers.TFSMLayer(MODEL_PATH, call_endpoint='serving_default')
 
@@ -26,10 +26,10 @@ async def predict(file: UploadFile = File(...)):
     image = read_file_as_image(await file.read())
     img_batch = np.expand_dims(image, axis=0)
 
-    # Get predictions from the model
+    
     predictions = model_layer(img_batch)
     
-    # Log the raw predictions
+    
     print(f"Raw predictions: {predictions}")
 
     predicted_class = CLASS_NAMES[np.argmax(predictions[0])]
